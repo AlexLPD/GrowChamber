@@ -19,3 +19,7 @@ The watterign time;
 For the wattering time we will use this factors: 
 //inster graph here 
 
+This is the watering machine, we will be using; 
+
+
+
