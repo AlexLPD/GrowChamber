@@ -25,116 +25,112 @@ unsigned long maxHumDelay = (10* minuto);
 float H = 0; //for the humidity 
 float minH = 20; 
 float maxH = 30; 
+float minHInWatering = 29.5;  
 
-typedef enum{	watSTM1, //start the watering machine  
-				watSTM2, //see if the minum timmer between waterings has elapsed 
-				watSTM3, //see if the current H is below minH 
-				watSTM4, //turn on the fogger and the fan 
-				watSTM5, //we reach max hum? yes next step, no wait here
-				watSTM6, //stop the fogger and the fan 
-				watSTM7, //start max humidity timmer 
-				watSTM8, //has the max watering time elapsed? no next step, yes save timme for min wat time / got to watSTM11
- 				watSTM9, //is the H < the minHinWatering?  yes, start the fogger, no wait next step
- 				watSTM10,//is the H > maxHum ? yes stop the fogger and the fan, no back to watSTM8
- 				watSTM11,//exit watering machine end fuction. 
- 			}	watSTM;  /
+ typedef enum {	watSM1, //see if the minum timmer between waterings has elapsed 
+				watSM2, //see if the current H is below minH 
+				watSM3, //turn on the fogger and the fan 
+				watSM4, //we reach max hum? yes next step, no wait here
+				watSM5, //stop the fogger and the fan 
+				watSM6, //start max humidity timmer 
+				watSM7, 
+				watSM8, //has the max watering time elapsed? no next step, yes save timme for min wat time / got to watSM11
+ 				watSM9, //
+ 				watSM10,//save time for min time between watering and moce foward 
+ 				watSM11,//turn off fogger and fan and move foward.
+ 				watSM12,//exit from watering machine on main loop 
+ 			}	watSMOp;  //
 
-	switch (watSTM) 
+watSMOp watSM  = watSM1; 
+
+	switch (watSM) //watering State Machine 
 	{
-	    case watSTM1:
+	    case watSM1:
 	      	//min time between waterings elapsed
-			if(millis() - mtbWatering > mtbWateringDelay) watSTM = watSTM2; 
-	      	else watSTM = watSTM1; 
+			if(millis() - mtbWatering > mtbWateringDelay) watSM = watSM2; 
+	      	else { watSM = watSM1; }
 	    	break;
 	    
-	    case watSTM2:
+	    case watSM2:
 	    	//is the humidity below Hmin level?   
-	      	if( H < Hmin) watSTM = watSTM3; 
-	      	else watSTM = watSTM2; 
+	      	if( H < minH) watSM = watSM3; 
+	      	else {watSM = watSM2; }
 	    	break;
 	    
-	    case watSTM3: 
+	    case watSM3: 
 	    	//turn on the fogger and the fan and move on 
 	    	// fogger on 
 	    	// fan On 
-	    	watSTM = watSTM4; 
+	    	watSM = watSM4; 
 	    	break; 
 	    
-	    case watSTM4: 
-	    	//we reach max humidiy? no, wait here yes next step
-	    	if(H > maxHum) watSTM = watSTM5; 
-	    	else watSTM = watSTM4; 
+	    case watSM4: 
+	    	//we reach max humidiy? no-wait here, yes-next step
+	    	if(H > maxH) watSM = watSM5; 
+	    	else { watSM = watSM4; }
 	    break; 
 	    
-	    case watSTM5: 
+	    case watSM5: 
+	    	//if we make the high humidity stop the fogger and the fan and move on
 	    	//fogger off 
 	    	//fan off
-	    	watSTM = watSTM6; 
-	    break; 
+	    	watSM = watSM6; 
+	    	break; 
 		
-		case watSTM6:
+		case watSM6:
 			//start the max humidity timmer
 			//poner una guarda booleana aca 
 			maxHumTimmer = millis();
-			watSTM = watSTM7; 
+			watSM = watSM7; 
 			break; 
 
-		case watSTM7:
+		case watSM7:
 			//has the maximun watering time elapsed? 
 			if(millis() - maxHumTimmer > maxHumDelay)
 				{	
-					//no  watSTM = watSTM8;  
-					mtbWatering = millis(); //save the time for minimun time between waterings
-					watSTM = watSTM__; //if the timmer ends move to the state no. 
+					mtbWatering = millis();  //save the time for minimun time between waterings
+					watSM = watSM10;         //if we end of wattering go and end the machine. 
 				}
-				else
+				else //if not elapsed move on
 				{
-					watSTM = watSTM8;
+					watSM = watSM8;
 				}
 
 			break; 
 		
-		case watSTM8:
-			if( H < minHinWatering) 
-				{
-					//turn on the fogger
-				}
-				else watSTM = watSTM9; 
-			break;
-		
-		case watSTM9:
-			if( H > maxH)
-				{
-					//turn off the fogger 
-				}
-				else 
+		case watSM8:
+				if( H > maxH)
 					{
-
+						//turn off the fogger 
 					}
-			break; 
-		
-		case watSTM10:
+					else 
+						{
+							watSM = watSM9; // go to next step
+						}
 			break;
 		
-		case watSTM11:
+		case watSM9:
+				if( H < minHInWatering) 
+				{
+					//start the fogger
+					watSM = watSM7; 
+				}
+					else {watSM = watSM7; }
+				break; 
+		
+		case watSM10:
+				//take time for min time between watering. 
+				//reset boolean guard for take time 
+				watSM = watSM11; 
 			break;
+		
+		case watSM11:
+				//turn off fogger, turn off fan 
+				//move foward 
+			break;
+	
+		case watSM12:
+			break; 	//insert instruction to end thw watering state machine.  
 	}
-
-
-
-	{
-		if( H < minH)
-		{
-			//turn on the fogger
-			//trun on the fan 
-
-		}
-
-	}
-
-
-
-
-
 
 }
