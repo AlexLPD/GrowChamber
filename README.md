@@ -21,5 +21,21 @@ For the wattering time we will use this factors:
 
 This is the watering machine, we will be using; 
 
+GerminadoraV3hardware.ino;
 
+Cointains all the data and pin, coneection necessary for the module to work properly 
+LCD 20x04 in cluided and working
+SD ADAPOR included
+RTC included 
+
+Function to; Print once at the the power up, the header of the data; including the date and time, columns names.
+Function to; Log data on  sd; the date, time, hum, temperature 
+Function to; average the DTH measurement data
+Function to; Display the changue of the T and humity on display 
+
+Will add to the waterring machine code and need to be added to the sd file saving;  
+The state of the system machine
+The state of the subsystem machine 
+
+In the future, will need to add: ligth sensor to read the ligth sensor readint o the sd file. 
 
