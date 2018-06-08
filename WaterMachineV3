@@ -1,0 +1,1280 @@
+//This format of watering machine has to be changues to allow the system to run acordingly to the reality. 
+//fos this to happend, we will, changue the manner of the waterring proces to a much more simple way 
+// just, star the watering, reach the desired level, and then a timmer keep the wattering for some time
+//once this time has been elapsed, we canstop the fogger and the ventilation system, and star the 
+//extraction system for another timer, once this is elapsed, stop and then wait some more time to 
+//the next irrigation if there is needed. 
+
+
+/* ===================================================================== *
+ *                                                                       *
+ * DISPLAY SYSTEM                                                        *
+ *                                                                       *
+ * ===================================================================== *
+ * every "disp menu function" needs three functions 
+ * - void LCDML_DISP_setup(func_name)    
+ * - void LCDML_DISP_loop(func_name)     
+ * - void LCDML_DISP_loop_end(func_name)
+ *
+ * EXAMPLE CODE:
+    void LCDML_DISP_setup(..menu_func_name..) 
+    {
+      // setup
+      // is called only if it is started
+
+      // starts a trigger event for the loop function every 100 millisecounds
+      LCDML_DISP_triggerMenu(100);  
+    }
+    
+    void LCDML_DISP_loop(..menu_func_name..)
+    { 
+      // loop
+      // is called when it is triggert
+      // - with LCDML_DISP_triggerMenu( millisecounds ) 
+      // - with every button status change
+
+      // check if any button is presed (enter, up, down, left, right)
+      if(LCDML_BUTTON_checkAny()) {         
+        LCDML_DISP_funcend();
+      } 
+    }
+    
+    void LCDML_DISP_loop_end(..menu_func_name..)
+    {
+      // loop end
+      // this functions is ever called when a DISP function is quit
+      // you can here reset some global vars or do nothing  
+    } 
+ * ===================================================================== *
+ */
+//=====================================================================
+//PANTALLA INFORMACION  
+//=====================================================================
+// *********************************************************************
+void LCDML_DISP_setup(LCDML_FUNC_information)
+// *********************************************************************
+{
+  // setup function 
+  lcd.setCursor(0, 0);  lcd.print(F("   Realizado por:"));
+  lcd.setCursor(0, 1);  lcd.print(F(" Alejandro Santiago"));
+  lcd.setCursor(0, 2);  lcd.print(F("    Colaborador:"));
+  lcd.setCursor(0, 3);  lcd.print(F("   Ricardo Callejo")); 
+}
+
+void LCDML_DISP_loop(LCDML_FUNC_information) 
+{
+  if(LCDML_BUTTON_checkAny()) {               // check if any button is presed (enter, up, down, left, right)
+    LCDML_DISP_funcend();                     // LCDML_DISP_funcend calls the loop_end function
+  } 
+}
+void LCDML_DISP_loop_end(LCDML_FUNC_information){}  
+
+//=====================================================================
+//MAX HUMEDAD DEL DIA 
+//=====================================================================
+// *********************************************************************
+uint8_t g_func_timer_info = 0;                // time counter (global variable)
+unsigned long g_timer_1   = 0;                // timer variable (globale variable)
+void LCDML_DISP_setup(LCDML_FUNC_timer_info)
+// *********************************************************************
+{
+  // setup function   
+  lcd.print(F("x sec warten"));               // print some content on first row  
+  g_func_timer_info = 10;                     // reset and set timer    
+  LCDML_DISP_triggerMenu(100);                // starts a trigger event for the loop function every 100 millisecounds
+}
+
+void LCDML_DISP_loop(LCDML_FUNC_timer_info)
+{   
+  // this timer checks every 1000 millisecounds if it is called
+  if((millis() - g_timer_1) >= 1000) {
+    g_timer_1 = millis();   
+    g_func_timer_info--;                // increment the value every secound
+    lcd.setCursor(0, 0);                // set cursor pos
+    lcd.print(g_func_timer_info);       // print the time counter value
+  }
+  
+  // reset the initscreen timer
+  LCDML_DISP_resetIsTimer();
+  
+  // this function can only be ended when quit button is pressed or the time is over
+  // check if the function ends normaly
+  if (g_func_timer_info <= 0)
+  {
+    // end function for callback
+    LCDML_DISP_funcend();  
+  }   
+}
+
+void LCDML_DISP_loop_end(LCDML_FUNC_timer_info) {}
+
+
+
+
+
+//=====================================================================
+//MAX HUMEDAD DEL DIA 
+//=====================================================================
+// *********************************************************************
+uint8_t g_button_value = 0; // button value counter (global variable)
+char data1[8]= "";
+bool saveMaxHumDay = true;  //for save just once the data 
+void LCDML_DISP_setup(LCDML_FUNC_MX_H_D)
+// *********************************************************************
+{ 
+  // setup function
+  max_hum_dia =  EEPROM.read(epprom_max_hum_day_adress);        //read the las value saved and show it 
+  if( max_hum_dia == 255) max_hum_dia = 0;                      //if the memory dont have a value, become 0 
+  sprintf(data1, "%03d HR", max_hum_dia);                       //leadin 0, if minus 100 
+
+  lcd.setCursor(0 , 0);  lcd.print(F("-Max Humedad en Dia-"));  
+  lcd.setCursor(0 , 1);  lcd.print(F(" Hum Max Dia:       "));
+  lcd.setCursor(0 , 2);  lcd.print(F("      ACTUAL:       "));
+  lcd.setCursor(14, 2);  lcd.print(data1);                      //imprime la max humedad almacenada
+  g_button_value = 0;                                           // Reset Button Value
+  saveMaxHumDay  = true;                                        //always the function is called, reset variable
+  Serial.print("Se lee la memoria epprom "); Serial.println(max_hum_dia);
+}
+
+void LCDML_DISP_loop(LCDML_FUNC_MX_H_D)
+{
+  if (LCDML_BUTTON_checkAny())                                  // check if any button is pressed 
+  {
+    if (LCDML_BUTTON_checkLeft() || LCDML_BUTTON_checkUp())     // check if button left is pressed
+    {
+        LCDML_BUTTON_resetLeft();  LCDML_BUTTON_resetUp();      
+        if (g_button_value > 100 || g_button_value == 101)   g_button_value = 0;         g_button_value++;
+        // update lcd content
+        lcd.setCursor(14, 1); lcd.print("   ");                 // print change content
+        lcd.setCursor(14, 1); lcd.print(g_button_value);        // print change content
+    }    
+      
+    if (LCDML_BUTTON_checkRight() || LCDML_BUTTON_checkDown())  
+    {
+        LCDML_BUTTON_resetRight();  LCDML_BUTTON_resetDown();   
+        if(g_button_value <= 0)      g_button_value = 100;       g_button_value--;
+        lcd.setCursor(14, 1); lcd.print("   ");                // print change content
+        lcd.setCursor(14, 1); lcd.print(g_button_value);       // print change content
+    }
+    
+    if ( LCDML_BUTTON_checkEnter()) 
+    {
+      LCDML_BUTTON_resetEnter();                               //reset the button 
+      max_hum_dia = g_button_value;                            //pasamos el valor del encoder a la variable. 
+      sprintf(data1, "%03d HR", max_hum_dia);
+      lcd.setCursor(14, 2);  lcd.print(data1);
+      Serial.print("Se ha guardado en epprom "); Serial.println(data1);
+      if(saveMaxHumDay == true)
+        {
+          EEPROM.write(epprom_max_hum_day_adress, max_hum_dia);//if enter write the value on the epprom
+          saveMaxHumDay = false; 
+        }
+    }
+  }
+} 
+void LCDML_DISP_loop_end(LCDML_FUNC_MX_H_D) {}
+
+
+//=====================================================================
+//MIN HUMEDAD DEL DIA 
+//=====================================================================
+// *********************************************************************
+uint8_t g_button_value2 = 0;                                    // button value counter (global variable)
+char data2[8]= ""; 
+bool saveMinHumDay = true; 
+// *********************************************************************
+void LCDML_DISP_setup(LCDML_FUNC_MIN_H_D)
+{ 
+  min_hum_dia =  EEPROM.read(epprom_min_hum_day_adress);        //read the las value saved and show it 
+  if(min_hum_dia == 255) min_hum_dia = 0;                       //if memory dont has a value, become 0 value 
+  sprintf(data2,"%03d HR", min_hum_dia);                        //format the data with leading 0, if minis 100. 
+  lcd.setCursor(0 , 0);  lcd.print(F("-Min Humedad en Dia-"));  
+  lcd.setCursor(0 , 1);  lcd.print(F(" Hum Min Dia: "));
+  lcd.setCursor(0 , 2);  lcd.print(F("      ACTUAL:"));
+  lcd.setCursor(14, 2);  lcd.print(data2);                //imprime la max humedad almacenada
+  
+  saveMinHumDay = true;                                          //reset variable each time we here 
+  g_button_value2 = 0; 
+  Serial.print("Se lee la memoria epprom "); Serial.println(data2);
+}
+
+void LCDML_DISP_loop(LCDML_FUNC_MIN_H_D)
+{
+  if (LCDML_BUTTON_checkAny())                                    // check if any button is pressed 
+  {
+    if (LCDML_BUTTON_checkLeft() || LCDML_BUTTON_checkUp())       // check if button left is pressed
+    {
+        LCDML_BUTTON_resetLeft();  LCDML_BUTTON_resetUp();        //reset the buttons 
+        if (g_button_value2 > 100)   g_button_value2 = 0;         //evaluate the variable        
+        g_button_value2++;                                        //act on the viarable 
+        sprintf(data2,"%03d HR",  g_button_value2);               //reuse the char, for formating 
+        lcd.setCursor(14, 1); lcd.print(data2);                   // print 
+    }    
+      
+    if (LCDML_BUTTON_checkRight() || LCDML_BUTTON_checkDown())  
+    {
+        LCDML_BUTTON_resetRight();   LCDML_BUTTON_resetDown();
+        if(g_button_value2 < 1)      g_button_value2 = 100;       g_button_value2--;      
+        sprintf(data2,"%03d HR",  g_button_value2);               //reuse the char, for formating    
+        lcd.setCursor(14, 1); lcd.print(data2);                   // print change content
+    }
+    
+    if ( LCDML_BUTTON_checkEnter()) 
+    {
+      LCDML_BUTTON_resetEnter();                                  //reset the button 
+      min_hum_dia = g_button_value2;                              //pasamos el valor del encoder a la variable. 
+      lcd.setCursor(14, 2);  lcd.print(data2);                    //print the data on the lcd 
+      
+      if(saveMinHumDay == true)                                   //write on epprom just once per cycle
+      {
+        EEPROM.write(epprom_min_hum_day_adress, min_hum_dia);     
+        saveMinHumDay = false;
+      }
+
+      Serial.print("Se ha guardado en epprom "); Serial.println(data2);
+    }
+  }
+} 
+
+void LCDML_DISP_loop_end(LCDML_FUNC_MIN_H_D) {}
+
+
+//=====================================================================
+//TIEMPO EN HUMEDAD MAXIMA DEL DIA 
+//=====================================================================
+uint8_t g_button_value3 = 0;                                    // button value counter (global variable)
+char data3[8] ="";                                              //for formating the data on lcd 
+bool saveTimInMaxHumDay = true;                                 //for save data just once on epprom 
+
+void LCDML_DISP_setup(LCDML_FUNC_TMAX_H_D)
+{ 
+  Thum_max_dia =  EEPROM.read(t_hum_max_day_adress);            //read if any value in epprom 
+  if( Thum_max_dia == 255) Thum_max_dia = 0;                    //if the memory is in white return 0     
+  sprintf(data3,"%03d MIN", Thum_max_dia);                      //format the data for screen 
+  
+  lcd.setCursor(0 , 0);  lcd.print(F(" Tiempo MAX Hum Dia "));  
+  lcd.setCursor(0 , 1);  lcd.print(F("T MAX H Dia: "));
+  lcd.setCursor(0 , 2);  lcd.print(F("     ACTUAL:"));
+  lcd.setCursor(13, 2);  lcd.print(data3);               
+  g_button_value3 = 0; 
+  saveTimInMaxHumDay = true;                                    //Reset Var 
+  Serial.print("Se lee la memoria epprom "); Serial.println(t_hum_max_day_adress);
+}
+
+void LCDML_DISP_loop(LCDML_FUNC_TMAX_H_D)
+{
+  if (LCDML_BUTTON_checkAny())                                  // check if any button is pressed 
+  {
+    if (LCDML_BUTTON_checkLeft() ||LCDML_BUTTON_checkUp())      
+    {
+        LCDML_BUTTON_resetLeft();     LCDML_BUTTON_resetUp();     g_button_value3++;
+        if (g_button_value3 > 100)   g_button_value3 = 0;      
+        
+        sprintf(data3,"%03d MIN", g_button_value3 );            //format the data for screen 
+        lcd.setCursor(13, 1); lcd.print(data3);                 // print change content
+    }    
+      
+    if (LCDML_BUTTON_checkRight() ||LCDML_BUTTON_checkDown())  
+    {
+        LCDML_BUTTON_resetRight();    LCDML_BUTTON_resetDown();   g_button_value3--;       
+        if (g_button_value3 == 255)  g_button_value3 = 100; 
+        if (g_button_value3 < 0 )    g_button_value3 = 100;
+        
+        sprintf(data3,"%03d MIN", g_button_value3 );                //format the data for screen 
+        lcd.setCursor(13, 1); lcd.print(data3);                     // print change content
+    }
+    
+    if ( LCDML_BUTTON_checkEnter()) 
+    {
+      LCDML_BUTTON_resetEnter();                                   //reset the button 
+      Thum_max_dia = g_button_value3;                              //pasamos el valor del encoder a la variable. 
+      lcd.setCursor(13, 2);  lcd.print(data3);
+
+      if(saveTimInMaxHumDay == true)
+        {
+          EEPROM.write(t_hum_max_day_adress, Thum_max_dia);        //if enter write the value on the epprom
+          saveTimInMaxHumDay = false;
+        }
+      Serial.print("Se ha guardado en epprom "); Serial.println(data3);
+    }
+  }
+} 
+
+void LCDML_DISP_loop_end(LCDML_FUNC_TMAX_H_D) {}
+
+//=====================================================================
+//TIEMPO ENTRE RIEGOS DE DIA 
+//=====================================================================
+uint8_t g_button_value4 = 0;                                      // button value counter (global variable)
+char data4[8]= "";                                                //formt data for lcd 
+bool save_Tent_rig_dia = true;                                    //save data just once 
+void LCDML_DISP_setup(LCDML_FUNC_T_RIEGO_DAY)                     // setup function
+{ 
+  Tent_rig_dia =  EEPROM.read(t_entre_riegos_day_adress);        
+  if(Tent_rig_dia == 255) Tent_rig_dia = 0; 
+  sprintf(data4,"%03d MIN", Tent_rig_dia); 
+
+  lcd.setCursor(0 , 0);  lcd.print(F("-Tiempo MIN Entre Rgo"));  
+  lcd.setCursor(0 , 1);  lcd.print(F("T MIN/RIEGO:"));
+  lcd.setCursor(0 , 2);  lcd.print(F("     ACTUAL:"));
+  lcd.setCursor(13, 2);  lcd.print(data4);               
+  save_Tent_rig_dia = true;
+  g_button_value4 = 0;                                            // Reset Button Value
+  Serial.print("Se lee la memoria epprom "); Serial.println(data4);
+}
+
+void LCDML_DISP_loop(LCDML_FUNC_T_RIEGO_DAY)
+{
+  if (LCDML_BUTTON_checkAny())                                    // check if any button is pressed 
+  {
+    if (LCDML_BUTTON_checkLeft() ||LCDML_BUTTON_checkUp())        // check if button left is pressed
+    {
+        LCDML_BUTTON_resetLeft();  LCDML_BUTTON_resetUp(); 
+        if(g_button_value4 > 120) g_button_value4 = 0;    g_button_value4++;
+        sprintf(data4,"%03d MIN", g_button_value4); 
+        lcd.setCursor(13, 1); lcd.print(data4);                   // print change content
+    }    
+      
+    if (LCDML_BUTTON_checkRight() ||LCDML_BUTTON_checkDown())  
+    {
+        LCDML_BUTTON_resetRight();  LCDML_BUTTON_resetDown(); 
+        if(g_button_value4 < 1) g_button_value4 = 120;    g_button_value4--;
+        sprintf(data4,"%03d MIN", g_button_value4); 
+        lcd.setCursor(13, 1); lcd.print(data4);                   // print change content
+    }
+    
+    if ( LCDML_BUTTON_checkEnter()) 
+    {
+      LCDML_BUTTON_resetEnter();                                  //reset the button 
+      Tent_rig_dia = g_button_value4;                             //pasamos el valor del encoder a la variable. 
+      if(save_Tent_rig_dia == true)
+        {
+          EEPROM.write(t_entre_riegos_day_adress, Tent_rig_dia);  //if enter write the value on the epprom
+          save_Tent_rig_dia = false;
+        }
+      lcd.setCursor(13, 2);  lcd.print(data4);
+      Serial.print("Se ha guardado en epprom "); Serial.println(data4);
+    }
+  }
+} 
+void LCDML_DISP_loop_end(LCDML_FUNC_T_RIEGO_DAY){}
+
+
+//=====================================================================
+//TIEMPO ENTRE RIEGOS DE DIA 
+//=====================================================================
+void LCDML_DISP_setup(LCDML_FUNC_DAY_INFO)
+{ 
+  byte a = EEPROM.read(epprom_max_hum_day_adress);    //maxima humedad de dia
+  byte b = EEPROM.read(epprom_min_hum_day_adress);    //min humedad de riego dia 
+  byte c = EEPROM.read(t_hum_max_day_adress);         //tiempo maximo en humedad max de dia
+  byte d = EEPROM.read(t_entre_riegos_day_adress);    //tiempo entre riego de dia.
+  if(a == 255) a = 0;   if(b == 255) b = 0;   if(c == 255) c = 0;   if(d == 255) d = 0; 
+  // setup function
+  lcd.setCursor(0 , 0);  lcd.print(F("----RIEGO DE DIA----"));  
+  lcd.setCursor(0 , 1);  lcd.print(F("HUMEDAD")); lcd.setCursor(9, 1);  lcd.print(F("TIEMPO"));
+  lcd.setCursor(0 , 2);  lcd.print(F("MAX:"));    lcd.setCursor(5, 2);  lcd.print(a);
+  lcd.setCursor(0 , 3);  lcd.print(F("MIN:"));    lcd.setCursor(5, 3);  lcd.print(b);
+ 
+  lcd.setCursor(9, 2);  lcd.print(c); lcd.setCursor(13, 2);  lcd.print(F("MAX H"));
+  lcd.setCursor(9, 3);  lcd.print(d); lcd.setCursor(13, 3);  lcd.print(F("M/RGO"));
+}
+void LCDML_DISP_loop    (LCDML_FUNC_DAY_INFO){} 
+void LCDML_DISP_loop_end(LCDML_FUNC_DAY_INFO){}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//=====================================================================
+//TIEMPO DE VENTILACION EN EL DIA 
+//=====================================================================
+uint8_t g_button_value21 =  0;                            // button value counter (global variable)
+char            data21[8]=  ""; 
+
+void LCDML_DISP_setup(LCDML_FUNC_T_VENT_DAY)
+{ 
+  ven_time_day =  EEPROM.read(vent_day_time_adress);      //tiempo de ventilacion en dia  
+  if( ven_time_day   == 255) ven_time_day = 0; 
+  sprintf(data21, "%03d MIN", ven_time_day); 
+                                                        
+  lcd.setCursor(0 , 0);  lcd.print(F("Tiempo Vent dia     "));  
+  lcd.setCursor(0 , 1);  lcd.print(F("T Vent Dia :"));
+  lcd.setCursor(0 , 2);  lcd.print(F("     ACTUAL:"));
+  lcd.setCursor(13, 2);  lcd.print(data21);                     //imprime la max humedad almacenada
+  
+  Serial.print("Se lee la memoria epprom "); Serial.println(ven_time_day);
+  g_button_value21 = 0;   // Reset Button Value
+}
+
+void LCDML_DISP_loop(LCDML_FUNC_T_VENT_DAY)
+{
+  if (LCDML_BUTTON_checkAny()) // check if any button is pressed (enter, up, down, left, right)
+  {
+    if (LCDML_BUTTON_checkLeft() || LCDML_BUTTON_checkUp()) // check if button left is pressed
+    {
+        LCDML_BUTTON_resetLeft();     LCDML_BUTTON_resetUp();   g_button_value21++;  
+        if (g_button_value21 > 100)    g_button_value21 = 0;            
+        sprintf(data21, "%03d MIN",    g_button_value21); 
+        lcd.setCursor(14, 1);          lcd.print(data21);       
+    }    
+      
+    if (LCDML_BUTTON_checkRight() || LCDML_BUTTON_checkDown())  
+    {
+        LCDML_BUTTON_resetRight();    LCDML_BUTTON_resetDown(); g_button_value21--;    
+        if(g_button_value21 == 255)    g_button_value21 = 0;
+        if(g_button_value21 <=  0)     g_button_value21 = 100;    
+        sprintf(data21, "%03d MIN",    g_button_value21); 
+        lcd.setCursor(14, 1);          lcd.print(data21);       // print change content
+    }
+    
+    if ( LCDML_BUTTON_checkEnter()) 
+    {
+      LCDML_BUTTON_resetEnter();                                    //reset the button 
+      ven_time_day = g_button_value21;                             //pasamos el valor del encoder a la variable. 
+      EEPROM.write(vent_day_time_adress, ven_time_day );            //if enter write the value on the epprom
+      lcd.setCursor(14, 2);  lcd.print(data21);
+      Serial.print("Se ha guardado en epprom "); Serial.println(data21);
+    }
+  }
+} 
+void LCDML_DISP_loop_end(LCDML_FUNC_T_VENT_DAY) {}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//=====================================================================
+//MAX HUMEDAD DE LA NOCHE
+//=====================================================================
+uint8_t g_button_value5 = 0;                                    // button value counter (global variable)
+char data8[8]=""; 
+
+void LCDML_DISP_setup(LCDML_FUNC_MX_H_N)
+{ 
+  max_hum_noc =  EEPROM.read(max_hum_noc_adress);               //read the las value saved and show it 
+  if( max_hum_noc == 255) max_hum_noc = 0; 
+  sprintf(data8, "%03d HR", max_hum_noc); 
+
+  lcd.setCursor(0 , 0);  lcd.print(F("Max Humedad Noche "));  
+  lcd.setCursor(0 , 1);  lcd.print(F("Hum Max Noche:"));
+  lcd.setCursor(0 , 2);  lcd.print(F("       ACTUAL:"));
+  lcd.setCursor(14, 2);  lcd.print(data8);                     //imprime la max humedad almacenada
+  
+  Serial.print("Se lee la memoria epprom "); Serial.println(max_hum_noc);
+  g_button_value5 = 0;   // Reset Button Value
+}
+
+void LCDML_DISP_loop(LCDML_FUNC_MX_H_N)
+{
+  if (LCDML_BUTTON_checkAny()) // check if any button is pressed (enter, up, down, left, right)
+  {
+    if (LCDML_BUTTON_checkLeft() || LCDML_BUTTON_checkUp()) // check if button left is pressed
+    {
+        LCDML_BUTTON_resetLeft();     LCDML_BUTTON_resetUp();   g_button_value5++;  
+        if (g_button_value5 > 100)    g_button_value5 = 0;            
+        sprintf(data8, "%03d HR", g_button_value5); 
+        lcd.setCursor(14, 1); lcd.print(data8);       
+    }    
+      
+    if (LCDML_BUTTON_checkRight() || LCDML_BUTTON_checkDown())  
+    {
+        LCDML_BUTTON_resetRight();    LCDML_BUTTON_resetDown(); g_button_value5--;    
+        if(g_button_value5 == 255)    g_button_value5 = 0;
+        if(g_button_value5 <=  0)     g_button_value5 = 100;    
+        sprintf(data8, "%03d HR", g_button_value5); 
+        lcd.setCursor(14, 1);         lcd.print(data8);       // print change content
+    }
+    
+    if ( LCDML_BUTTON_checkEnter()) 
+    {
+      LCDML_BUTTON_resetEnter();                                 //reset the button 
+      max_hum_noc = g_button_value5;                             //pasamos el valor del encoder a la variable. 
+      EEPROM.write(max_hum_noc_adress, max_hum_noc);             //if enter write the value on the epprom
+      lcd.setCursor(14, 2);  lcd.print(data8);
+      Serial.print("Se ha guardado en epprom "); Serial.println(data8);
+    }
+  }
+} 
+void LCDML_DISP_loop_end(LCDML_FUNC_MX_H_N) {}
+
+
+//=====================================================================
+//MIN HUMEDAD DE LA NOCHE
+//=====================================================================
+uint8_t g_button_value6 = 0;                                    // button value counter (global variable)
+char data6[8] = "";                                             //for lcd formating 
+
+void LCDML_DISP_setup(LCDML_FUNC_MIN_H_N)
+{ 
+  min_hum_noc =  EEPROM.read(min_hum_noc_adress);               //read the las value saved and show it 
+  if(min_hum_noc == 255) min_hum_noc = 0;                       //if memory is white convert to cero the value 
+  sprintf(data6,"%03d HR", min_hum_noc); 
+  lcd.setCursor(0 , 0);  lcd.print(F("-Min Humedad Noche -"));  
+  lcd.setCursor(0 , 1);  lcd.print(F("Hum Min Noche:"));
+  lcd.setCursor(0 , 2);  lcd.print(F("       ACTUAL:"));
+  lcd.setCursor(14, 2);  lcd.print(data6);                      //imprime la max humedad almacenada
+  g_button_value6 = 0;                                          // Reset Button Value
+  Serial.print("Se lee la memoria epprom "); Serial.println(data6);
+  
+}
+
+void LCDML_DISP_loop(LCDML_FUNC_MIN_H_N)
+{
+  if (LCDML_BUTTON_checkAny()) 
+  {
+    if (LCDML_BUTTON_checkLeft() || LCDML_BUTTON_checkUp())     //check if button left is pressed
+    {
+        LCDML_BUTTON_resetLeft(); LCDML_BUTTON_resetUp();       g_button_value6++;
+        if (g_button_value6 > 100)    g_button_value6 = 0;      
+        sprintf(data6,"%03d HR",g_button_value6);               //format data 
+        lcd.setCursor(14, 1); lcd.print(data6);                 // print change content
+    }    
+      
+    if (LCDML_BUTTON_checkRight() || LCDML_BUTTON_checkDown())  g_button_value6--;   
+    {
+        LCDML_BUTTON_resetRight();    LCDML_BUTTON_resetDown(); 
+        if(g_button_value6 == 255)    g_button_value6 = 100;    
+        if(g_button_value6 <  0)      g_button_value6 = 100;    
+        sprintf(data6,"%03d HR",g_button_value6);               //format data 
+        lcd.setCursor(14, 1); lcd.print(data6);       // print change content
+    }
+    
+    if ( LCDML_BUTTON_checkEnter()) 
+    {
+      LCDML_BUTTON_resetEnter();                                 //reset the button 
+      min_hum_noc = g_button_value6;                             //pasamos el valor del encoder a la variable. 
+      EEPROM.write(min_hum_noc_adress, min_hum_noc);             //if enter write the value on the epprom
+      
+      lcd.setCursor(14, 2);  lcd.print(data6);
+      Serial.print("Saved on epprom "); Serial.println(data6);
+    }
+  }
+} 
+void LCDML_DISP_loop_end(LCDML_FUNC_MIN_H_N) {}
+
+
+//=====================================================================
+//TIEMPO EN HUMEDAD MAXIMA DE LA NOCHE
+//=====================================================================
+uint8_t g_button_value7 = 0;                                       // button value counter (global variable)
+char data7[8] =""; 
+void LCDML_DISP_setup(LCDML_FUNC_TMAX_H_N)
+{ 
+  Thum_max_noc =  EEPROM.read(t_hum_max_noc_adress);               //read the las value saved and show it 
+  if(Thum_max_noc == 255) Thum_max_noc = 0; 
+  sprintf(data7,"%03d MIN", Thum_max_noc); 
+
+  lcd.setCursor(0 , 0);  lcd.print(F(" Tiempo H MAX Noche"));  
+  lcd.setCursor(0 , 1);  lcd.print(F("T-MAX Noche:"));
+  lcd.setCursor(0 , 2);  lcd.print(F("     ACTUAL:"));
+  lcd.setCursor(12, 2);  lcd.print(data7);                        //imprime la max humedad almacenada
+  g_button_value7 = 0;                                            // Reset Button Value
+  Serial.print("Saved on epprom "); Serial.println(min_hum_noc);  //show me on serial 
+}
+
+void LCDML_DISP_loop(LCDML_FUNC_TMAX_H_N)
+{
+  if (LCDML_BUTTON_checkAny())                                    // check if any button is pressed 
+  {
+    if (LCDML_BUTTON_checkLeft() || LCDML_BUTTON_checkUp())       // check if button left is pressed
+    {
+        LCDML_BUTTON_resetLeft();     LCDML_BUTTON_resetUp();     g_button_value7++;
+        if (g_button_value7 > 120)    g_button_value7 = 0;      
+        sprintf(data7,"%03d MIN",     g_button_value7 ); 
+        lcd.setCursor(12, 1);         lcd.print(data7);           // print change content
+    }    
+      
+    if (LCDML_BUTTON_checkRight() || LCDML_BUTTON_checkDown())  
+    {
+        LCDML_BUTTON_resetRight();   LCDML_BUTTON_resetDown();    g_button_value7--;    
+        if(g_button_value7 == 255)   g_button_value7 = 0;
+        if(g_button_value7 <= 0)     g_button_value7 = 119;     
+        sprintf(data7,"%03d MIN",    g_button_value7 ); 
+        lcd.setCursor(12, 1);        lcd.print(data7);           // print change content
+    }
+    
+    if ( LCDML_BUTTON_checkEnter()) 
+    {
+      LCDML_BUTTON_resetEnter();                                 //reset the button 
+      Thum_max_noc = g_button_value7;                            //pasamos el valor del encoder a la variable. 
+      EEPROM.write(t_hum_max_noc_adress, Thum_max_noc);          //if enter write the value on the epprom
+      lcd.setCursor(12, 2);  lcd.print(data7);
+      Serial.print("Saved on epprom "); Serial.println(data7);
+    }
+  }
+} 
+void LCDML_DISP_loop_end(LCDML_FUNC_TMAX_H_N) {}
+
+
+
+//=====================================================================
+//TIEMPO DE VENTILACION EN LA NOCHE 
+//=====================================================================
+uint8_t g_button_value20 = 0;                                    // button value counter (global variable)
+char data20[8]=""; 
+
+void LCDML_DISP_setup(LCDML_FUNC_T_VENT_NOC)
+{ 
+  vent_time_ngt       =  EEPROM.read(ven_ngt_time_adress);      //tiempo de ventilación de noche
+  if( vent_time_ngt   == 255) vent_time_ngt = 0; 
+  sprintf(data20, "%03d MIN", vent_time_ngt); 
+                                                        
+  lcd.setCursor(0 , 0);  lcd.print(F("Tiempo Vent Noche "));  
+  lcd.setCursor(0 , 1);  lcd.print(F("T Vent Noche :"));
+  lcd.setCursor(0 , 2);  lcd.print(F("       ACTUAL:"));
+  lcd.setCursor(14, 2);  lcd.print(data20);                     //imprime la max humedad almacenada
+  
+  Serial.print("Se lee la memoria epprom "); Serial.println(vent_time_ngt);
+  g_button_value20 = 0;   // Reset Button Value
+}
+
+void LCDML_DISP_loop(LCDML_FUNC_T_VENT_NOC)
+{
+  if (LCDML_BUTTON_checkAny()) // check if any button is pressed (enter, up, down, left, right)
+  {
+    if (LCDML_BUTTON_checkLeft() || LCDML_BUTTON_checkUp()) // check if button left is pressed
+    {
+        LCDML_BUTTON_resetLeft();     LCDML_BUTTON_resetUp();   g_button_value20++;  
+        if (g_button_value20 > 100)    g_button_value20 = 0;            
+        sprintf(data20, "%03d MIN", g_button_value20); 
+        lcd.setCursor(14, 1); lcd.print(data20);       
+    }    
+      
+    if (LCDML_BUTTON_checkRight() || LCDML_BUTTON_checkDown())  
+    {
+        LCDML_BUTTON_resetRight();    LCDML_BUTTON_resetDown(); g_button_value20--;    
+        if(g_button_value20 == 255)    g_button_value20 = 0;
+        if(g_button_value20 <=  0)     g_button_value20 = 100;    
+        sprintf(data20, "%03d MIN", g_button_value20); 
+        lcd.setCursor(14, 1);         lcd.print(data20);       // print change content
+    }
+    
+    if ( LCDML_BUTTON_checkEnter()) 
+    {
+      LCDML_BUTTON_resetEnter();                                 //reset the button 
+      vent_time_ngt = g_button_value20;                             //pasamos el valor del encoder a la variable. 
+      EEPROM.write(ven_ngt_time_adress, vent_time_ngt);             //if enter write the value on the epprom
+      lcd.setCursor(14, 2);  lcd.print(data20);
+      Serial.print("Se ha guardado en epprom "); Serial.println(data20);
+    }
+  }
+} 
+void LCDML_DISP_loop_end(LCDML_FUNC_T_VENT_NOC) {}
+
+
+
+//=====================================================================
+//CAMBIAR LA HORA EN QUE INCIA EL PROGRAMA DE DIA 
+//=====================================================================
+uint8_t g_button_value12  = 0;                                    // button value counter 
+byte position             = 0;                                    //to capture the cursor position and changue hr, min 
+bool firsTime             = true;                                 //to restet the encoder value once on loop 
+bool saveDayMinHr         = true;                                 //to save just once on click 
+bool firstTimeHrDia       = true;                                 //to erase button value, 
+char hrActual[21]         = "";                                   //to assembly te current hour 
+char minScreen[3]         = "";                                   //for a pretty code 
+char hrScreen[3]          = "";         
+byte e                    = 0;                                    //var to store min of day program 
+byte f                    = 0;                                    //var to store hr of day program 
+byte knob                 = 0;                                    //to cas encoder dato in to a byte 
+
+void LCDML_DISP_setup(LCDML_FUNC_HR_DAY)
+{ 
+                           
+  byte e = EEPROM.read(min_riego_dia_adress );                    //min inicio riego de dia 
+  byte f = EEPROM.read(hr_riego_dia_adress);                      //hr incio riego dia 
+  
+  if(e == 255) e = 0; 
+  if(f == 255) f = 0; 
+
+  sprintf(hrActual,"ACTUAL->%02d/%02d", f, e);   
+
+  lcd.setCursor(0 , 0);  lcd.print(F("    HR INICIO DIA   "));  
+  lcd.setCursor(0 , 1);  lcd.print(F("        _0/00       "));  
+  lcd.setCursor(0 , 2);  lcd.print(F("        HH/MM       "));
+  lcd.setCursor(0 , 3);  lcd.print(hrActual); 
+  
+  g_button_value12 = 0;                                           // Reset Button Value
+}
+
+void LCDML_DISP_loop(LCDML_FUNC_HR_DAY)
+{
+  if (LCDML_BUTTON_checkAny()) 
+  {
+    if (LCDML_BUTTON_checkLeft() || LCDML_BUTTON_checkUp())       // check if button left is pressed
+    {
+      LCDML_BUTTON_resetLeft();  LCDML_BUTTON_resetUp();  g_button_value12++;
+      if(position == 0)
+        {      
+          if (g_button_value12 > 24  )  g_button_value12 = 0;     //ROLL OVER THE DATA 24hr
+          f = g_button_value12; 
+          sprintf(hrScreen, "%02d", f); 
+          lcd.setCursor(8, 1); lcd.print(hrScreen);              
+        }
+      if(position == 1)
+        {
+          if (g_button_value12 > 60  )  g_button_value12 = 0;     //ROLL OVER THE DATA 60min
+          e = g_button_value12; 
+          sprintf(minScreen, "%02d", e);
+          lcd.setCursor(11, 1); lcd.print(minScreen);              
+        }
+    }
+
+      
+    if (LCDML_BUTTON_checkRight() || LCDML_BUTTON_checkDown())  
+    {
+      LCDML_BUTTON_resetRight();    LCDML_BUTTON_resetDown(); g_button_value12--;
+      if(position == 0)
+        {      
+          if (g_button_value12 == 255)  g_button_value12 = 24;     //clear the encoder 
+          if (g_button_value12 < 0  )   g_button_value12 = 24;     //ROLL OVER THE DATA 24hr
+          f = g_button_value12; 
+          sprintf(hrScreen, "%02d", f); 
+          lcd.setCursor(8, 1); lcd.print(hrScreen);              
+        }
+      if(position == 1)
+        {
+          if (g_button_value12 == 255)  g_button_value12 = 59;     //clear the encoder 
+          if (g_button_value12 < 0  )   g_button_value12 = 59;     //ROLL OVER THE DATA 60min
+          e = g_button_value12;
+          sprintf(minScreen, "%02d", e);
+          lcd.setCursor(11, 1); lcd.print(minScreen);              
+        }  
+    }
+    if ( LCDML_BUTTON_checkEnter()) 
+    {
+      LCDML_BUTTON_resetEnter();                                 
+      if(position > 3) position = 0; 
+      position++;                                                
+
+      if(position == 2)
+      {                             
+        lcd.setCursor(0, 0); lcd.print(F("    HR INICIO DIA   ")); 
+     // lcd.setCursor(0, 1); lcd.print(" RENGLON DE HRA Y MIN "); 
+        lcd.setCursor(0, 2); lcd.print(F("   PRESIONE ENTER   ")); 
+        lcd.setCursor(0, 3); lcd.print(F(" PARA GUARDAR DATOS ")); 
+      }
+      
+      if(position == 3)
+      { 
+        if(saveDayMinHr == true)
+        { 
+          EEPROM.write(min_riego_dia_adress, e);
+          EEPROM.write(hr_riego_dia_adress,  f);
+          saveDayMinHr = false; 
+        }
+
+        lcd.setCursor(0, 0); lcd.print(F("    HR INICIO DIA   "));
+        lcd.setCursor(0, 2); lcd.print(F("   SE HAN GUARDADO  ")); 
+        lcd.setCursor(0, 3); lcd.print(F("      LOS DATOS     ")); 
+      }    
+    }
+  }
+} 
+void LCDML_DISP_loop_end(LCDML_FUNC_HR_DAY) {position = 0;}          //to capture the cursor position and changue hr, min 
+
+
+
+
+//=====================================================================
+//CAMBIAR LA HORA EN QUE INCIA EL PROGRAMA DE NOCHE 
+//=====================================================================
+uint8_t g_button_value14   = 0;            // button value counter 
+byte position2             = 0;            //to capture the cursor position and changue hr, min 
+bool firsTime2             = true;         //to restet the encoder value once on loop 
+bool saveDayMinHr2         = true;         //to save just once on click 
+bool firstTimeHrDia2       = true;         //to erase button value, 
+char hrActual2[21]          = "";          //to assembly te current hour 
+char minScreen2[3]         = "";           //for a pretty code 
+char hrScreen2[3]          = "";         
+byte e2                    = 0;            //var to store min of day program 
+byte f2                    = 0;            //var to store hr of day program 
+
+void LCDML_DISP_setup(LCDML_FUNC_HR_NOC)
+{                            
+  e2 = EEPROM.read(min_riego_noc_adress);    //min inicio riego de dia 
+  f2 = EEPROM.read(hr_riego_noc_adress);      //hr incio riego dia 
+  
+  if(e2 == 255) e2 = 0; 
+  if(f2 == 255) f2 = 0; 
+
+  sprintf(hrActual2,"ACTUAL->%02d/%02d", f2, e2);   
+
+  lcd.setCursor(0 , 0);  lcd.print(F("    HR INICIO NOC   "));  
+  lcd.setCursor(0 , 1);  lcd.print(F("        _0/00       "));  
+  lcd.setCursor(0 , 2);  lcd.print(F("        HH/MM       "));
+  lcd.setCursor(0 , 3);  lcd.print(hrActual2); 
+  
+  g_button_value14 = 0;                                         // Reset Button Value
+}
+
+void LCDML_DISP_loop(LCDML_FUNC_HR_NOC)
+{
+  if (LCDML_BUTTON_checkAny()) 
+  {
+    if (LCDML_BUTTON_checkLeft() || LCDML_BUTTON_checkUp()) // check if button left is pressed
+    {
+      LCDML_BUTTON_resetLeft();  LCDML_BUTTON_resetUp();  g_button_value14++;
+      if(position2 == 0)
+        {      
+          if (g_button_value14 > 24  )  g_button_value14 = 0;     //ROLL OVER THE DATA 24hr
+          f2 = g_button_value14; 
+          sprintf(hrScreen2, "%02d", f2); 
+          lcd.setCursor(8, 1); lcd.print(hrScreen2);              
+        }
+      if(position2 == 1)
+        {
+          if (g_button_value14 > 59  )  g_button_value14 = 0;     //ROLL OVER THE DATA 60min
+          e2 = g_button_value14; 
+          sprintf(minScreen2, "%02d", e2);
+          lcd.setCursor(11, 1); lcd.print(minScreen2);              
+        }
+    }
+
+      
+    if (LCDML_BUTTON_checkRight() || LCDML_BUTTON_checkDown())  
+    {
+      LCDML_BUTTON_resetRight();    LCDML_BUTTON_resetDown(); g_button_value14--;
+      if(position2 == 0)
+        {      
+          if (g_button_value14 == 255)  g_button_value14 = 24;     //clear the encoder 
+          if (g_button_value14 < 0  )   g_button_value14 = 24;     //ROLL OVER THE DATA 24hr
+          f2 = g_button_value14; 
+          sprintf(hrScreen2, "%02d", f2); 
+          lcd.setCursor(8, 1); lcd.print(hrScreen2);              
+        }
+      if(position2 == 1)
+        {
+          if (g_button_value14 == 255)  g_button_value14 = 59;     //clear the encoder 
+          if (g_button_value14 < 0  )   g_button_value14 = 59;    //ROLL OVER THE DATA 60min
+          e2 = g_button_value14;
+          sprintf(minScreen2, "%02d", e2);
+          lcd.setCursor(11, 1); lcd.print(minScreen2);              
+        }  
+    }
+    if ( LCDML_BUTTON_checkEnter()) 
+    {
+      LCDML_BUTTON_resetEnter();                                 
+      if(position2 > 3) position2 = 0; 
+      position2++;                                                
+
+      if(position2 == 2)
+      {                             
+        lcd.setCursor(0, 0); lcd.print(F("    HR INICIO DIA   ")); 
+     // lcd.setCursor(0, 1); lcd.print(" RENGLON DE HRA Y MIN "); 
+        lcd.setCursor(0, 2); lcd.print(F("   PRESIONE ENTER   ")); 
+        lcd.setCursor(0, 3); lcd.print(F(" PARA GUARDAR DATOS ")); 
+      }
+      
+      if(position2 == 3)
+      { 
+        if(saveDayMinHr2 == true)
+        { 
+          EEPROM.write(min_riego_noc_adress, e2);
+          EEPROM.write(hr_riego_noc_adress,  f2);
+          saveDayMinHr2 = false; 
+        }
+
+        lcd.setCursor(0, 0); lcd.print(F("    HR INICIO DIA   "));
+        lcd.setCursor(0, 2); lcd.print(F("   SE HAN GUARDADO  ")); 
+        lcd.setCursor(0, 3); lcd.print(F("      LOS DATOS     ")); 
+      }    
+    }
+  }
+} 
+void LCDML_DISP_loop_end(LCDML_FUNC_HR_NOC) {position2 = 0;}            //to capture the cursor position and changue hr, min 
+
+
+
+
+
+
+
+
+
+
+
+//=====================================================================
+//TIEMPO ENTRE RIEGOS NOCHE
+//=====================================================================
+uint8_t g_button_value8 = 0; // button value counter (global variable)
+void LCDML_DISP_setup(LCDML_FUNC_T_RIEGO_NOC)
+{ 
+  // setup function
+  Tent_rig_noc =  EEPROM.read(t_entre_riegos_noc_adress);               //read the las value saved and show it 
+  lcd.setCursor(0 , 0);  lcd.print(F("-Tiempo entre riego-"));  
+  lcd.setCursor(0 , 1);  lcd.print(F("T/Riego Noche:"));
+  lcd.setCursor(0 , 2);  lcd.print(F("       ACTUAL:"));
+  lcd.setCursor(16, 2);  lcd.print(Tent_rig_noc);                  //imprime la max humedad almacenada
+  
+  Serial.print("Se lee la memoria epprom "); Serial.println(Tent_rig_noc);
+  g_button_value8 = 0;   // Reset Button Value
+}
+
+void LCDML_DISP_loop(LCDML_FUNC_T_RIEGO_NOC)
+{
+  if (LCDML_BUTTON_checkAny()) // check if any button is pressed (enter, up, down, left, right)
+  {
+    if (LCDML_BUTTON_checkLeft() || LCDML_BUTTON_checkUp()) // check if button left is pressed
+    {
+        LCDML_BUTTON_resetLeft(); LCDML_BUTTON_resetUp();       g_button_value8++;
+        if (g_button_value8 > 100)    g_button_value8 = 0;      //ROLL OVER THE DATA 
+        lcd.setCursor(15, 1); lcd.print("   ");                 // print change content
+        lcd.setCursor(15, 1); lcd.print(g_button_value8);       // print change content
+    }    
+      
+    if (LCDML_BUTTON_checkRight() || LCDML_BUTTON_checkDown())  
+    {
+        LCDML_BUTTON_resetRight();    LCDML_BUTTON_resetDown(); g_button_value8--;
+        if(g_button_value8 <= 0)      g_button_value8 = 100;    //ROLL OVER THE VARIABLE
+        lcd.setCursor(15, 1); lcd.print("   ");                 // print change content
+        lcd.setCursor(15, 1); lcd.print(g_button_value8);       // print change content
+    }
+    
+    if ( LCDML_BUTTON_checkEnter()) 
+    {
+      LCDML_BUTTON_resetEnter();                                 //reset the button 
+      Tent_rig_noc = g_button_value8;                            //pasamos el valor del encoder a la variable. 
+      EEPROM.write(t_entre_riegos_noc_adress, Tent_rig_noc);     //if enter write the value on the epprom
+      lcd.setCursor(15, 2);  lcd.print("   ");
+      lcd.setCursor(15, 2);  lcd.print(Tent_rig_noc);
+      Serial.print("Se ha guardado en epprom "); Serial.println(Tent_rig_noc);
+    }
+  }
+} 
+void LCDML_DISP_loop_end(LCDML_FUNC_T_RIEGO_NOC) {}
+
+
+//=====================================================================
+//INFORMACION DE RIEGO DE NOCHE 
+//=====================================================================
+uint8_t g_button_value11 = 0;
+
+  char renglon1[21] = "MAXIMA HUMEDAD NOCHE"; 
+  char renglon2[21] = ""; 
+  char renglon3[21] = "MINIMA HUMEDAD NOCHE"; 
+  char renglon4[21] = ""; 
+  char renglon5[21] = "TIEMPO EN HUMEDAD   ";  
+  char renglon6[21] = "MAXIMA NOCHE        "; 
+  char renglon7[21] = ""; 
+  char renglon8[21] = "TIEMPO ENTRE RIEGOS ";
+  char renglon9[21] = "";
+
+  const char* renglones[] =  {renglon1, renglon2, renglon3, renglon4,
+                              renglon5, renglon6, renglon7, renglon8,
+                              renglon9 };                             
+
+  
+void LCDML_DISP_setup(LCDML_FUNC_NOC_INFO)
+{ 
+  byte e = EEPROM.read(max_hum_noc_adress);           //maxima humedad de noche
+  byte f = EEPROM.read(min_hum_noc_adress);           //min humedad de riego noche 
+  byte g = EEPROM.read(t_hum_max_noc_adress);         //tiempo maximo en humedad max de noche 
+  byte h = EEPROM.read(t_entre_riegos_noc_adress);    //tiempo entre riego de noche.
+ 
+  sprintf(renglon2,"----------> %3d  HR ", e); 
+  sprintf(renglon4,"----------> %3d  MIN", f); 
+  sprintf(renglon7,"----------> %3d  MIN", g); 
+  sprintf(renglon9,"----------> %3d  MIN", h); 
+
+  lcd.setCursor(0, 0); lcd.print( renglones[0]);       // print change content
+  lcd.setCursor(0, 1); lcd.print( renglones[1]);       // print change content
+  lcd.setCursor(0, 2); lcd.print( renglones[2]);       // print change content
+  lcd.setCursor(0, 3); lcd.print( renglones[3]);       // print change content
+  
+  g_button_value11 = 0;
+}
+
+void LCDML_DISP_loop(LCDML_FUNC_NOC_INFO)
+{
+  if (LCDML_BUTTON_checkAny()) // check if any button is pressed (enter, up, down, left, right)
+  {
+    if (LCDML_BUTTON_checkLeft() || LCDML_BUTTON_checkUp()) // check if button left is pressed
+    {
+        LCDML_BUTTON_resetLeft();    LCDML_BUTTON_resetUp();       
+        if (g_button_value11 > 4)     g_button_value11 = 0;                    //stop at the nine element 
+        g_button_value11++;
+        lcd.setCursor(0, 0); lcd.print( renglones[g_button_value11   ]);       // print change content
+        lcd.setCursor(0, 1); lcd.print( renglones[g_button_value11 +1]);       // print change content
+        lcd.setCursor(0, 2); lcd.print( renglones[g_button_value11 +2]);       // print change content
+        lcd.setCursor(0, 3); lcd.print( renglones[g_button_value11 +3]);       // print change content
+    }    
+      
+    if (LCDML_BUTTON_checkRight() || LCDML_BUTTON_checkDown())  
+    {
+        LCDML_BUTTON_resetRight();    LCDML_BUTTON_resetDown(); 
+        if(g_button_value11 < 0)      g_button_value11 = 4;                    //stop at the fist element  
+        g_button_value11--;
+        lcd.setCursor(0, 0); lcd.print( renglones[g_button_value11   ]);       // print change content
+        lcd.setCursor(0, 1); lcd.print( renglones[g_button_value11 +1]);       // print change content
+        lcd.setCursor(0, 2); lcd.print( renglones[g_button_value11 +2]);       // print change content
+        lcd.setCursor(0, 3); lcd.print( renglones[g_button_value11 +3]);       // print change content
+    }
+    
+    if ( LCDML_BUTTON_checkEnter()) LCDML_BUTTON_resetEnter();                                 
+  }
+} 
+void LCDML_DISP_loop_end(LCDML_FUNC_NOC_INFO) {}
+
+
+//=====================================================================
+//FUNCION PARA REINCIAR EL VARIABLES DEL CONTROLADOR 
+//=====================================================================
+uint8_t g_button_value10 = 0; // button value counter (global variable)
+void LCDML_DISP_setup(LCDML_FUNC_REBOOT)
+{ 
+  // setup function
+  lcd.setCursor(0 , 0);  lcd.print(F("-REINICIAR CONTROL-"));  
+  lcd.setCursor(0 , 1);  lcd.print(F("PRESIONE ENTER PARA "));
+  lcd.setCursor(0 , 2);  lcd.print(F("  REINCIAR CONFIG   "));
+  
+  Serial.println("PANTALLA PARA RENICIAR CONTROL "); 
+  g_button_value10 = 0;   // Reset Button Value
+}
+
+void LCDML_DISP_loop(LCDML_FUNC_REBOOT)
+{
+  if (LCDML_BUTTON_checkAny()) // check if any button is pressed (enter, up, down, left, right)
+  {
+    if (LCDML_BUTTON_checkLeft() || LCDML_BUTTON_checkUp())       // check if button left is pressed
+    {
+        LCDML_BUTTON_resetLeft(); LCDML_BUTTON_resetUp();      
+    }    
+      
+    if (LCDML_BUTTON_checkRight() || LCDML_BUTTON_checkDown())    //chek if rigth pressed dont in use 
+    {
+        LCDML_BUTTON_resetRight();    LCDML_BUTTON_resetDown();
+    }
+    
+    if ( LCDML_BUTTON_checkEnter()) 
+    {
+      LCDML_BUTTON_resetEnter();                                  //reset the button 
+      g_button_value10++;                                         //pasamos el valor del encoder a la variable. 
+      g_button_value10  = 0;                                      // un reset a la vez                             
+      
+      lcd.setCursor(0,  3);  lcd.print("-----REINICIADO-----");
+
+      EEPROM.write(epprom_max_hum_day_adress, 0);                 //reset all day watering variables 
+      EEPROM.write(epprom_min_hum_day_adress, 0);
+      EEPROM.write(t_hum_max_day_adress     , 0);
+      EEPROM.write(t_entre_riegos_day_adress, 0); 
+       
+      EEPROM.write(max_hum_noc_adress       , 0);                 //reset all the nigth watering options 
+      EEPROM.write(min_hum_noc_adress       , 0);   
+      EEPROM.write(t_hum_max_noc_adress     , 0);
+      EEPROM.write(t_entre_riegos_noc_adress, 0);   
+    }
+  }
+} 
+void LCDML_DISP_loop_end(LCDML_FUNC_REBOOT) {}                    //dont in use
+
+
+
+
+//=====================================================================
+//FUNCION PARA REINCIAR LAS HORAS GUARDAS EN CONTROLADOR 
+//=====================================================================
+uint8_t g_button_value13 = 0;   
+byte reset_state         = 0;
+bool resetTimeBol        = true;                //for end the reset of time 
+char HrGuardado[21]      = ""; 
+byte                   g = 0;                   //min inicio riego de dia 
+byte                   h = 0;                   //hr incio riego dia 
+byte                   i = 0;                   //min hr de noche 
+byte                   j = 0;                   //hr de horario de noche  
+//-----------------------------------------------------------------------------------
+void LCDML_DISP_setup(LCDML_FUNC_REBOOT_TIME)
+{ 
+  g = EEPROM.read(min_riego_dia_adress );       //min inicio riego de dia 
+  h = EEPROM.read(hr_riego_dia_adress  );       //hr incio riego dia 
+  i = EEPROM.read(min_riego_noc_adress ); 
+  j = EEPROM.read(hr_riego_noc_adress  );
+  
+  if(g == 255) g = 0;                           //if the memory is in blank returns 255
+  if(h == 255) h = 0;                           //present 0 to adjust 
+  if(i == 255) i = 0;
+  if(j == 255) j = 0;
+
+  // setup function
+  lcd.setCursor(0 , 0);  lcd.print(F("-REINICIAR HORARIOS-"));  
+  lcd.setCursor(0 , 1);  lcd.print(F("PRESIONE ENTER PARA "));
+  lcd.setCursor(0 , 2);  lcd.print(F("REINCIAR HR DIA NOC "));
+  
+  g_button_value13 = 0;                         // Reset Button Value
+  resetTimeBol = true;                          //for erase eeprom just once  
+  Serial.println("PANTALLA PARA RENICIAR HORA DE DIA Y NOCHE "); 
+}
+
+void LCDML_DISP_loop(LCDML_FUNC_REBOOT_TIME)
+{
+  
+  if (LCDML_BUTTON_checkAny()) // check if any button is pressed (enter, up, down, left, right)
+  { 
+    if ( LCDML_BUTTON_checkEnter()) 
+    {
+      reset_state++;                                                  //add one to this variable each enter  
+      LCDML_BUTTON_resetEnter();                                      //reset the button 
+      
+      if(reset_state == 1)                                            //imprime pantalla para dar a conocer los datos actuales
+      {
+        sprintf(HrGuardado, "DIA:%02d/%02d NOC:%02d/%02d",h, g, j, i); 
+        
+        lcd.setCursor(0 , 1);  lcd.print(F(" HORARIOS  GUARDADOS "));
+        lcd.setCursor(0 , 2);  lcd.print(HrGuardado); 
+        lcd.setCursor(0 , 3);  lcd.print(F("  ENTER PARA BORRAR  "));
+      }
+
+      if(reset_state == 2)
+      {                                                
+        if(resetTimeBol == true)                                      //just reset the values once
+        {
+          lcd.setCursor(0 , 1);  lcd.print(F("       HORARIOS      "));
+          lcd.setCursor(0 , 2);  lcd.print(F("                     ")); 
+          lcd.setCursor(0,  3);  lcd.print(F("-----REINICIADOS-----"));
+
+          EEPROM.write(epprom_max_hum_day_adress, 0);                 //reset all day watering variables 
+          EEPROM.write(epprom_min_hum_day_adress, 0);
+          EEPROM.write(t_hum_max_day_adress     , 0);
+          EEPROM.write(t_entre_riegos_day_adress, 0); 
+         
+          EEPROM.write(max_hum_noc_adress       , 0);                 //reset all the nigth watering options 
+          EEPROM.write(min_hum_noc_adress       , 0);   
+          EEPROM.write(t_hum_max_noc_adress     , 0);
+          EEPROM.write(t_entre_riegos_noc_adress, 0);   
+          resetTimeBol = false; 
+        }
+      }
+    }
+  }
+} 
+void LCDML_DISP_loop_end(LCDML_FUNC_REBOOT_TIME) { reset_state = 0; }                    //dont in use
+
+
+
+
+//======================================================================
+//PANTALLA DE TRABAJO 
+//======================================================================
+unsigned long g_initscreen_example_counter = 0;
+char datosSM1 [21] = "";
+
+void LCDML_DISP_setup(LCDML_FUNC_initscreen)
+{
+  // setup function
+  LCDML_DISP_triggerMenu(1000);                       //set trigger for this function to 1000 millisecounds
+  g_initscreen_example_counter = 0;                   // reset or set example counter
+}
+
+void LCDML_DISP_loop(LCDML_FUNC_initscreen) 
+{
+  g_initscreen_example_counter++;                     // count the example counter above
+  g_lcdml_initscreen = millis();                      // reset initscreen timer
+  if(LCDML_BUTTON_checkAny())                         // check if any button is pressed to left this function
+    { LCDML_DISP_funcend(); }                         // function end    
+                   
+  updateTempandHum();                                 // for print on the lcd display 
+
+  if(config == okConfig)                              //if the sensor os ok and the control woring 
+    {
+      
+      //if(lastWSM != watSM)  //for print jus once the status
+       // { //borramos aca, por que no queremos borrar en la pantalla de menu principal 
+          //borra el renglon de la lcd para q se vea bien  
+        //  lcd.setCursor(0  , 2);   lcd.print("                    ");  
+       // }
+
+
+      if(watSM == watSM1 )                            //if we are waiting to watering           
+        {
+          //LcdTimmerLine
+          lcd.setCursor(0  , 2);   lcd.print("Riego en ");
+          lcd.setCursor(10 , 2);   lcd.print(LcdTimmerLine);
+          lcd.setCursor(16 , 2);   lcd.print(" MIN"); 
+        }
+
+      if(watSM == watSM2 )                            //if we are waiting to watering           
+        {
+          //LcdTimmerLine
+          lcd.setCursor(0  , 2);   lcd.print("  Humedad En Rango  ");
+        }
+
+
+      if(watSM == watSM4)                            //if we are watering 
+        {
+          lcd.setCursor(0 , 2);   lcd.print("       REGANDO      ");
+        }          
+      
+      
+      if(watSM == watSM6)
+        {
+          lcd.setCursor(0  , 2);    lcd.print("Ventilndo"); 
+          lcd.setCursor(10 , 2);    lcd.print(LcdTimmerLine); 
+          lcd.setCursor(16 , 2);    lcd.print("MIN  "); 
+        }
+
+      
+      if(watSM == watSM8)                            //if we are waiting in max humidity time 
+        {
+          lcd.setCursor(0  , 2);    lcd.print("T. Riego "); 
+          lcd.setCursor(10 , 2);    lcd.print(LcdTimmerLine); 
+          lcd.setCursor(16 , 2);    lcd.print("MIN   "); 
+        }
+    }  
+  
+  
+  //to print the LCD time Each Second---------------------------------------------------------
+  if(RTCcurSec != RTCpasSec)                           
+    {
+      sprintf(horaStr, "%02d:%02d:%02d", tm.Hour, tm.Minute, tm.Second ); 
+      lcd.setCursor(0,0);    lcd.print(horaStr);      //fuction move to the lcd working screen
+    }
+    
+  //for print the date each day---------------------------------------------------------------
+  if(curDay != pasDay)                                
+    {
+      sprintf(fechaStr, "%02d/%02d/%4d", tm.Day, tm.Month, tmYearToCalendar(tm.Year) ); 
+      lcd.setCursor(10,0);    lcd.print(fechaStr);    //function move to lcd working screen
+      pasDay = curDay; 
+    }
+
+  // Si falta de configurar el control avisamos en pantalla----------------------------------- 
+  if(config == errorConfig)
+    {
+      lcd.setCursor(0 ,0); lcd.print(F("      PORFAVOR      "));        
+      lcd.setCursor(0 ,1); lcd.print(F("    CONFIGURE EL    "));        
+      lcd.setCursor(0 ,2); lcd.print(F("       CONTROL      "));        
+    }
+
+  // Si hay un error en el sensor avisamos en pantalla----------------------------------------
+  if(config == sesorError)
+    {
+      lcd.setCursor(0,0);   lcd.print(F("                   "));        
+      lcd.setCursor(0,1);   lcd.print(F("  ERROR EN SENSOR  ")); 
+      lcd.setCursor(0,2);   lcd.print(F("   REVISE SENSOR   ")); 
+    }
+}
+
+void LCDML_DISP_loop_end(LCDML_FUNC_initscreen) 
+{  
+  LCDML.goRoot(); // go to root element (first element of this menu with id=0)
+}
